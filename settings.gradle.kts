@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "MarocTv2.0"
-include(":app")
+include(":Application")
