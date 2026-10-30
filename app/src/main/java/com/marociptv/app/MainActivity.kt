@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,37 +18,49 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.MediaItem as PlayerMediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.DisposableEffect
+import coil.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
 
 private val Noir = Color(0xFF100D16)
 private val Violet = Color(0xFF8B5CF6)
 private val Carte = Color(0xFF211A2D)
 private val Blanc = Color(0xFFF7F3FF)
 
+private const val ADDON_BASE =
+    "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibTo6RlI6MTc5MzQwMzk0MzY4NTowOjA6RlI%3D"
+
+data class Film(
+    val id: String,
+    val titre: String,
+    val affiche: String,
+    val description: String,
+    val type: String,
+    val source: String
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MarocTvApp()
-        }
+        setContent { MarocTvApp() }
     }
 }
 
 @Composable
 fun MarocTvApp() {
     var page by remember { mutableStateOf("Accueil") }
-
-    val pages = listOf(
-        "Accueil", "Catalogue", "TV en direct",
-        "Lecteur", "Favoris", "Extensions"
-    )
+    var selection by remember { mutableStateOf<Film?>(null) }
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -62,16 +75,19 @@ fun MarocTvApp() {
             containerColor = Noir,
             bottomBar = {
                 NavigationBar(containerColor = Carte) {
-                    pages.forEach { nom ->
+                    listOf("Accueil", "Films", "Séries", "Lecteur", "Favoris", "Extensions").forEach { nom ->
                         NavigationBarItem(
                             selected = page == nom,
-                            onClick = { page = nom },
+                            onClick = {
+                                page = nom
+                                selection = null
+                            },
                             icon = {
                                 Icon(
-                                    imageVector = when (nom) {
+                                    when (nom) {
                                         "Accueil" -> Icons.Default.Home
-                                        "Catalogue" -> Icons.Default.Movie
-                                        "TV en direct" -> Icons.Default.LiveTv
+                                        "Films" -> Icons.Default.Movie
+                                        "Séries" -> Icons.Default.Tv
                                         "Lecteur" -> Icons.Default.PlayArrow
                                         "Favoris" -> Icons.Default.Favorite
                                         else -> Icons.Default.Extension
@@ -79,224 +95,28 @@ fun MarocTvApp() {
                                     contentDescription = nom
                                 )
                             },
-                            label = { Text(nom, fontSize = 10.sp) }
+                            label = { Text(nom, fontSize = 9.sp) }
                         )
                     }
                 }
             }
         ) { padding ->
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp)
+                Modifier.fillMaxSize().padding(padding).padding(14.dp)
             ) {
-                Text(
-                    "MarocTv2.0",
-                    color = Violet,
-                    fontSize = 28.sp
-                )
+                Text("MarocTv2.0", color = Violet, fontSize = 27.sp)
+                Spacer(Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                when (page) {
-                    "Accueil" -> Accueil()
-                    "Catalogue" -> Catalogue()
-                    "TV en direct" -> TvDirect()
-                    "Lecteur" -> LecteurVideo()
-                    "Favoris" -> Favoris()
-                    "Extensions" -> Extensions()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun Accueil() {
-    Text("Bienvenue sur MarocTv2.0", color = Blanc, fontSize = 22.sp)
-    Spacer(modifier = Modifier.height(12.dp))
-    Text("Films, séries et télévision en direct.", color = Blanc)
-    Spacer(modifier = Modifier.height(20.dp))
-    Text("Découvrir", color = Violet, fontSize = 20.sp)
-    Text("Ton espace de divertissement.", color = Blanc)
-}
-
-@Composable
-fun Catalogue() {
-    var recherche by remember { mutableStateOf("") }
-
-    val contenus = listOf(
-        "Films à découvrir",
-        "Séries à découvrir",
-        "Nouveautés",
-        "Populaires"
-    )
-
-    OutlinedTextField(
-        value = recherche,
-        onValueChange = { recherche = it },
-        label = { Text("Rechercher un film ou une série") },
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    LazyColumn {
-        items(contenus.filter {
-            it.contains(recherche, ignoreCase = true)
-        }) { titre ->
-            CarteMedia(titre)
-        }
-    }
-}
-
-@Composable
-fun TvDirect() {
-    Text("Télévision en direct", color = Blanc, fontSize = 22.sp)
-    Spacer(modifier = Modifier.height(12.dp))
-    Text(
-        "Ajoute une extension M3U pour charger tes chaînes.",
-        color = Blanc
-    )
-}
-
-@Composable
-fun LecteurVideo() {
-    val context = LocalContext.current
-    var url by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("Entre une adresse vidéo.") }
-
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build()
-    }
-
-    DisposableEffect(exoPlayer) {
-        onDispose {
-            exoPlayer.release()
-        }
-    }
-
-    Text("Lecteur vidéo", color = Blanc, fontSize = 22.sp)
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    OutlinedTextField(
-        value = url,
-        onValueChange = { url = it },
-        label = { Text("Adresse de la vidéo") },
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    Spacer(modifier = Modifier.height(10.dp))
-
-    Button(
-        onClick = {
-            if (url.startsWith("http://") || url.startsWith("https://")) {
-                exoPlayer.setMediaItem(MediaItem.fromUri(url))
-                exoPlayer.prepare()
-                exoPlayer.play()
-                message = "Lecture lancée."
-            } else {
-                message = "Adresse vidéo invalide."
-            }
-        },
-        colors = ButtonDefaults.buttonColors(containerColor = Violet)
-    ) {
-        Text("Lire la vidéo")
-    }
-
-    Text(message, color = Blanc)
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    AndroidView(
-        factory = { viewContext ->
-            PlayerView(viewContext).apply {
-                player = exoPlayer
-                useController = true
-            }
-        },
-        update = { playerView ->
-            playerView.player = exoPlayer
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(220.dp)
-    )
-}
-
-@Composable
-fun Favoris() {
-    Text("Mes favoris", color = Blanc, fontSize = 22.sp)
-    Spacer(modifier = Modifier.height(12.dp))
-    Text("Tes films et séries favoris apparaîtront ici.", color = Blanc)
-}
-
-@Composable
-fun Extensions() {
-    var adresse by remember { mutableStateOf("") }
-    var extensions by remember {
-        mutableStateOf(listOf<String>())
-    }
-
-    Text("Extensions", color = Blanc, fontSize = 22.sp)
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    OutlinedTextField(
-        value = adresse,
-        onValueChange = { adresse = it },
-        label = { Text("Adresse M3U ou JSON") },
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    Spacer(modifier = Modifier.height(10.dp))
-
-    Button(
-        onClick = {
-            if (
-                adresse.startsWith("http://") ||
-                adresse.startsWith("https://")
-            ) {
-                extensions = extensions + adresse
-                adresse = ""
-            }
-        },
-        colors = ButtonDefaults.buttonColors(containerColor = Violet)
-    ) {
-        Text("Ajouter une extension")
-    }
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    if (extensions.isEmpty()) {
-        Text("Aucune extension ajoutée.", color = Blanc)
-    } else {
-        LazyColumn {
-            items(extensions) { extension ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        extension,
-                        color = Blanc,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(
-                        onClick = {
-                            extensions = extensions - extension
-                        }
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Supprimer",
-                            tint = Color.Red
-                        )
+                if (selection != null) {
+                    DetailFilm(selection!!) { selection = null }
+                } else {
+                    when (page) {
+                        "Accueil" -> AccueilCatalogue { selection = it }
+                        "Films" -> Catalogue("movie") { selection = it }
+                        "Séries" -> Catalogue("series") { selection = it }
+                        "Lecteur" -> LecteurVideo()
+                        "Favoris" -> Text("Tes favoris apparaîtront ici.", color = Blanc)
+                        "Extensions" -> Extensions()
                     }
                 }
             }
@@ -305,22 +125,173 @@ fun Extensions() {
 }
 
 @Composable
-fun CarteMedia(titre: String) {
+fun AccueilCatalogue(onSelect: (Film) -> Unit) {
+    Text("Découvrir", color = Blanc, fontSize = 21.sp)
+    Catalogue("movie", onSelect)
+}
+
+@Composable
+fun Catalogue(type: String, onSelect: (Film) -> Unit) {
+    var films by remember(type) { mutableStateOf<List<Film>>(emptyList()) }
+    var chargement by remember(type) { mutableStateOf(true) }
+    var erreur by remember(type) { mutableStateOf("") }
+    var recherche by remember { mutableStateOf("") }
+
+    LaunchedEffect(type) {
+        chargement = true
+        erreur = ""
+        try {
+            films = withContext(Dispatchers.IO) {
+                chargerCatalogue(type)
+            }
+        } catch (e: Exception) {
+            erreur = e.message ?: "Erreur de chargement"
+        }
+        chargement = false
+    }
+
+    OutlinedTextField(
+        value = recherche,
+        onValueChange = { recherche = it },
+        label = { Text("Rechercher") },
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Spacer(Modifier.height(12.dp))
+
+    when {
+        chargement -> CircularProgressIndicator(color = Violet)
+        erreur.isNotEmpty() -> Text("Impossible de charger : $erreur", color = Color.Red)
+        films.isEmpty() -> Text("Aucun contenu trouvé.", color = Blanc)
+        else -> LazyColumn {
+            items(films.filter {
+                it.titre.contains(recherche, ignoreCase = true)
+            }) { film ->
+                CarteFilm(film) { onSelect(film) }
+            }
+        }
+    }
+}
+
+suspend fun chargerCatalogue(type: String): List<Film> {
+    val manifestUrl = "$ADDON_BASE/manifest.json"
+    val manifest = JSONObject(
+        URL(manifestUrl).readText()
+    )
+
+    val catalogues = manifest.getJSONArray("catalogs")
+    val resultats = mutableListOf<Film>()
+
+    for (i in 0 until catalogues.length()) {
+        val catalogue = catalogues.getJSONObject(i)
+        if (catalogue.optString("type") != type) continue
+
+        val id = catalogue.optString("id")
+        val nom = catalogue.optString("name", "Catalogue")
+        val url = "$ADDON_BASE/catalog/$type/$id.json"
+
+        try {
+            val reponse = JSONObject(URL(url).readText())
+            val metas = reponse.optJSONArray("metas") ?: continue
+
+            for (j in 0 until metas.length()) {
+                val item = metas.getJSONObject(j)
+                resultats.add(
+                    Film(
+                        id = item.optString("id"),
+                        titre = item.optString("name", nom),
+                        affiche = item.optString("poster"),
+                        description = item.optString("description"),
+                        type = type,
+                        source = ADDON_BASE
+                    )
+                )
+            }
+        } catch (_: Exception) {
+        }
+    }
+    return resultats.distinctBy { it.id }
+}
+
+@Composable
+fun CarteFilm(film: Film, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
+        Modifier.fillMaxWidth()
             .padding(vertical = 6.dp)
             .background(Carte, RoundedCornerShape(12.dp))
-            .clickable { }
-            .padding(16.dp),
+            .clickable { onClick() }
+            .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            Icons.Default.Movie,
-            contentDescription = null,
-            tint = Violet
+        AsyncImage(
+            model = film.affiche,
+            contentDescription = film.titre,
+            modifier = Modifier.size(width = 85.dp, height = 120.dp),
+            contentScale = ContentScale.Crop
         )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(titre, color = Blanc, fontSize = 16.sp)
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(film.titre, color = Blanc, fontSize = 17.sp)
+            Text(film.type, color = Violet)
+        }
     }
+}
+
+@Composable
+fun DetailFilm(film: Film, retour: () -> Unit) {
+    Text(film.titre, color = Blanc, fontSize = 23.sp)
+    Spacer(Modifier.height(12.dp))
+    AsyncImage(
+        model = film.affiche,
+        contentDescription = film.titre,
+        modifier = Modifier.fillMaxWidth().height(260.dp),
+        contentScale = ContentScale.Fit
+    )
+    Spacer(Modifier.height(12.dp))
+    Text(film.description, color = Blanc)
+    Spacer(Modifier.height(16.dp))
+    Text(
+        "La source vidéo doit être fournie par une extension de lecture compatible.",
+        color = Violet
+    )
+    Button(onClick = retour) { Text("Retour au catalogue") }
+}
+
+@Composable
+fun LecteurVideo() {
+    val context = LocalContext.current
+    var url by remember { mutableStateOf("") }
+    val player = remember { ExoPlayer.Builder(context).build() }
+
+    DisposableEffect(player) {
+        onDispose { player.release() }
+    }
+
+    Text("Lecteur vidéo", color = Blanc, fontSize = 22.sp)
+    OutlinedTextField(
+        value = url,
+        onValueChange = { url = it },
+        label = { Text("Adresse vidéo autorisée") },
+        modifier = Modifier.fillMaxWidth()
+    )
+    Button(onClick = {
+        if (url.startsWith("http")) {
+            player.setMediaItem(PlayerMediaItem.fromUri(url))
+            player.prepare()
+            player.play()
+        }
+    }) {
+        Text("Lire")
+    }
+    AndroidView(
+        factory = { PlayerView(it).apply { this.player = player } },
+        modifier = Modifier.fillMaxWidth().height(220.dp)
+    )
+}
+
+@Composable
+fun Extensions() {
+    Text("Extension Stremio française", color = Blanc, fontSize = 20.sp)
+    Text(ADDON_BASE + "/manifest.json", color = Violet)
+    Text("Le catalogue est chargé automatiquement dans Films et Séries.", color = Blanc)
 }
