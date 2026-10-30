@@ -9,13 +9,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Extension
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -99,30 +99,35 @@ fun MarocTvApp(context: Context) {
                         icon = { Icon(Icons.Default.Home, null) },
                         label = { Text("Accueil") }
                     )
+
                     NavigationBarItem(
                         selected = page == "Catalogue",
                         onClick = { page = "Catalogue" },
                         icon = { Icon(Icons.Default.Search, null) },
                         label = { Text("Catalogue") }
                     )
+
                     NavigationBarItem(
                         selected = page == "TV",
                         onClick = { page = "TV" },
                         icon = { Icon(Icons.Default.LiveTv, null) },
                         label = { Text("TV") }
                     )
+
                     NavigationBarItem(
                         selected = page == "Lecteur",
                         onClick = { page = "Lecteur" },
                         icon = { Icon(Icons.Default.PlayArrow, null) },
                         label = { Text("Lecteur") }
                     )
+
                     NavigationBarItem(
                         selected = page == "Favoris",
                         onClick = { page = "Favoris" },
                         icon = { Icon(Icons.Default.Favorite, null) },
                         label = { Text("Favoris") }
                     )
+
                     NavigationBarItem(
                         selected = page == "Extensions",
                         onClick = { page = "Extensions" },
@@ -141,6 +146,7 @@ fun MarocTvApp(context: Context) {
                         .padding(16.dp)
                 )
             } else if (page == "Extensions") {
+
                 Column(
                     Modifier
                         .fillMaxSize()
@@ -198,8 +204,10 @@ fun MarocTvApp(context: Context) {
                         onClick = {
                             if (
                                 nom.isNotBlank() &&
-                                (url.startsWith("https://") ||
-                                 url.startsWith("http://"))
+                                (
+                                    url.startsWith("https://") ||
+                                    url.startsWith("http://")
+                                )
                             ) {
                                 if (extensions.any { it.url == url.trim() }) {
                                     message = "Cette extension existe déjà."
@@ -256,10 +264,12 @@ fun MarocTvApp(context: Context) {
                                             extension.name,
                                             color = Color.White
                                         )
+
                                         Text(
                                             extension.type,
                                             color = Violet
                                         )
+
                                         Text(
                                             extension.url,
                                             color = Color.LightGray,
@@ -284,7 +294,9 @@ fun MarocTvApp(context: Context) {
                         }
                     }
                 }
+
             } else {
+
                 Column(
                     Modifier
                         .fillMaxSize()
@@ -317,9 +329,14 @@ fun MarocTvApp(context: Context) {
                             "TV en direct",
                             "Mes extensions"
                         )
+
                         "Catalogue" -> listOf("Films", "Séries")
+
                         "TV" -> listOf("Chaînes TV en direct")
-                        else -> favoris.toList()
+
+                        "Favoris" -> favoris.toList()
+
+                        else -> emptyList()
                     }.filter {
                         it.contains(recherche, ignoreCase = true)
                     }
@@ -359,8 +376,11 @@ fun MarocTvApp(context: Context) {
                                         Icon(
                                             Icons.Default.Favorite,
                                             contentDescription = "Favori",
-                                            tint = if (element in favoris)
-                                                Violet else Color.Gray
+                                            tint = if (element in favoris) {
+                                                Violet
+                                            } else {
+                                                Color.Gray
+                                            }
                                         )
                                     }
                                 }
@@ -376,16 +396,19 @@ fun MarocTvApp(context: Context) {
 @Composable
 fun LecteurVideo(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var adresse by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("Entre une adresse vidéo autorisée.") }
 
-    val player = remember {
+    var adresse by remember { mutableStateOf("") }
+    var message by remember {
+        mutableStateOf("Entre une adresse vidéo autorisée.")
+    }
+
+    val exoPlayer = remember {
         ExoPlayer.Builder(context).build()
     }
 
-    DisposableEffect(player) {
+    DisposableEffect(exoPlayer) {
         onDispose {
-            player.release()
+            exoPlayer.release()
         }
     }
 
@@ -414,9 +437,11 @@ fun LecteurVideo(modifier: Modifier = Modifier) {
                     adresse.startsWith("https://") ||
                     adresse.startsWith("http://")
                 ) {
-                    player.setMediaItem(MediaItem.fromUri(adresse.trim()))
-                    player.prepare()
-                    player.play()
+                    exoPlayer.setMediaItem(
+                        MediaItem.fromUri(adresse.trim())
+                    )
+                    exoPlayer.prepare()
+                    exoPlayer.play()
                     message = "Chargement de la vidéo..."
                 } else {
                     message = "Entre une adresse HTTP ou HTTPS valide."
@@ -424,7 +449,10 @@ fun LecteurVideo(modifier: Modifier = Modifier) {
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null)
+            Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = null
+            )
             Spacer(Modifier.width(8.dp))
             Text("Lire la vidéo")
         }
@@ -435,12 +463,12 @@ fun LecteurVideo(modifier: Modifier = Modifier) {
                 .height(230.dp),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
-                    player = this@LecteurVideo.player
+                    player = exoPlayer
                     useController = true
                 }
             },
             update = { playerView ->
-                playerView.player = player
+                playerView.player = exoPlayer
             }
         )
 
@@ -461,140 +489,7 @@ private fun loadExtensions(
     preferences: android.content.SharedPreferences
 ): List<ExtensionSource> {
     val count = preferences.getInt("count", 0)
-    return (0 until count).mapNotNull { index ->
-        val name = preferences.getString("name_$index", null)
-        val url = preferences.getString("url_$index", null)
-        val type = preferences.getString("type_$index", null)
 
-        if (name != null && url != null && type != null) {
-            ExtensionSource(name, url, type)
-        } else {
-            null
-        }
-    }
-}
-
-private fun saveExtensions(
-    preferences: android.content.SharedPreferences,
-    extensions: List<ExtensionSource>
-) {
-    val editor = preferences.edit()
-    editor.clear()
-    editor.putInt("count", extensions.size)
-
-    extensions.forEachIndexed { index, extension ->
-        editor.putString("name_$index", extension.name)
-        editor.putString("url_$index", extension.url)
-        editor.putString("type_$index", extension.type)
-    }
-
-    editor.apply()
-}
-                                 ) {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = "Supprimer",
-                                            tint = Color.White
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                Column(
-                    Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(16.dp)
-                ) {
-                    OutlinedTextField(
-                        value = recherche,
-                        onValueChange = { recherche = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Rechercher") },
-                        singleLine = true
-                    )
-
-                    Spacer(Modifier.height(20.dp))
-
-                    Text(
-                        page,
-                        color = Color.White,
-                        style = MaterialTheme.typography.headlineSmall
-                    )
-
-                    Spacer(Modifier.height(12.dp))
-
-                    val elements = when (page) {
-                        "Accueil" -> listOf(
-                            "Bienvenue sur MarocTv2.0",
-                            "Films",
-                            "Séries",
-                            "TV en direct",
-                            "Mes extensions"
-                        )
-                        "Catalogue" -> listOf("Films", "Séries")
-                        "TV" -> listOf("Chaînes TV en direct")
-                        else -> favoris.toList()
-                    }.filter {
-                        it.contains(recherche, ignoreCase = true)
-                    }
-
-                    LazyColumn {
-                        items(elements) { element ->
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 5.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Carte
-                                )
-                            ) {
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        element,
-                                        color = Color.White,
-                                        modifier = Modifier.weight(1f)
-                                    )
-
-                                    IconButton(
-                                        onClick = {
-                                            favoris =
-                                                if (element in favoris) {
-                                                    favoris - element
-                                                } else {
-                                                    favoris + element
-                                                }
-                                        }
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Favorite,
-                                            contentDescription = "Favori",
-                                            tint = if (element in favoris)
-                                                Violet else Color.Gray
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun loadExtensions(
-    preferences: android.content.SharedPreferences
-): List<ExtensionSource> {
-    val count = preferences.getInt("count", 0)
     return (0 until count).mapNotNull { index ->
         val name = preferences.getString("name_$index", null)
         val url = preferences.getString("url_$index", null)
