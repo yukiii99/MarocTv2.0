@@ -129,19 +129,24 @@ fun MarocTvApp() {
                         "Accueil" -> Catalogue("movie") {
                             selection = it
                         }
+
                         "Films" -> Catalogue("movie") {
                             selection = it
                         }
+
                         "Séries" -> Catalogue("series") {
                             selection = it
                         }
+
                         "Lecteur" -> LecteurVideo()
+
                         "Favoris" -> {
                             Text(
                                 "Tes favoris apparaîtront ici.",
                                 color = Blanc
                             )
                         }
+
                         "Extensions" -> Extensions()
                     }
                 }
@@ -158,12 +163,15 @@ fun Catalogue(
     var films by remember(type) {
         mutableStateOf<List<Film>>(emptyList())
     }
+
     var chargement by remember(type) {
         mutableStateOf(true)
     }
+
     var erreur by remember(type) {
         mutableStateOf("")
     }
+
     var recherche by remember(type) {
         mutableStateOf("")
     }
@@ -200,10 +208,7 @@ fun Catalogue(
         }
 
         erreur.isNotEmpty() -> {
-            Text(
-                "Erreur : $erreur",
-                color = Color.Red
-            )
+            Text("Erreur : $erreur", color = Color.Red)
             Text(
                 "Vérifie ta connexion Internet ou l'extension.",
                 color = Blanc
@@ -345,6 +350,7 @@ fun CarteFilm(
                 color = Blanc,
                 fontSize = 17.sp
             )
+
             Text(
                 if (film.type == "movie") "Film" else "Série",
                 color = Violet
@@ -402,13 +408,13 @@ fun LecteurVideo() {
     var url by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
 
-    val player = remember {
+    val exoPlayer = remember {
         ExoPlayer.Builder(context).build()
     }
 
-    DisposableEffect(player) {
+    DisposableEffect(exoPlayer) {
         onDispose {
-            player.release()
+            exoPlayer.release()
         }
     }
 
@@ -430,11 +436,11 @@ fun LecteurVideo() {
             if (url.startsWith("https://") ||
                 url.startsWith("http://")
             ) {
-                player.setMediaItem(
+                exoPlayer.setMediaItem(
                     PlayerMediaItem.fromUri(url)
                 )
-                player.prepare()
-                player.play()
+                exoPlayer.prepare()
+                exoPlayer.play()
                 message = "Lecture demandée."
             } else {
                 message = "Adresse vidéo invalide."
@@ -449,8 +455,11 @@ fun LecteurVideo() {
     AndroidView(
         factory = { viewContext ->
             PlayerView(viewContext).apply {
-                player = this@LecteurVideo.player
+                player = exoPlayer
             }
+        },
+        update = { playerView ->
+            playerView.player = exoPlayer
         },
         modifier = Modifier
             .fillMaxWidth()
