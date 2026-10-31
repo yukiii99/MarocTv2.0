@@ -2,6 +2,7 @@
 package com.marociptv.app
 
 import android.os.Bundle
+import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -27,7 +28,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -40,12 +43,22 @@ private val Blanc = Color(0xFFF7F3FF)
 private const val ADDON_BASE =
     "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibTo6RlI6MTc5MzQwMzk0MzY4NTowOjA6RlI%3D"
 
+private const val PREFS_NAME = "maroc_tv_preferences"
+private const val ADDONS_KEY = "installed_addons"
+
 data class Film(
     val id: String,
     val titre: String,
     val affiche: String,
     val description: String,
     val type: String
+)
+
+data class ExtensionInfo(
+    val nom: String,
+    val url: String,
+    val identifiant: String,
+    val version: String
 )
 
 class MainActivity : ComponentActivity() {
@@ -129,24 +142,19 @@ fun MarocTvApp() {
                         "Accueil" -> Catalogue("movie") {
                             selection = it
                         }
-
                         "Films" -> Catalogue("movie") {
                             selection = it
                         }
-
                         "Séries" -> Catalogue("series") {
                             selection = it
                         }
-
                         "Lecteur" -> LecteurVideo()
-
                         "Favoris" -> {
                             Text(
                                 "Tes favoris apparaîtront ici.",
                                 color = Blanc
                             )
                         }
-
                         "Extensions" -> Extensions()
                     }
                 }
@@ -163,15 +171,12 @@ fun Catalogue(
     var films by remember(type) {
         mutableStateOf<List<Film>>(emptyList())
     }
-
     var chargement by remember(type) {
         mutableStateOf(true)
     }
-
     var erreur by remember(type) {
         mutableStateOf("")
     }
-
     var recherche by remember(type) {
         mutableStateOf("")
     }
@@ -179,7 +184,6 @@ fun Catalogue(
     LaunchedEffect(type) {
         chargement = true
         erreur = ""
-
         try {
             films = withContext(Dispatchers.IO) {
                 chargerCatalogue(type)
@@ -187,7 +191,6 @@ fun Catalogue(
         } catch (e: Exception) {
             erreur = e.message ?: "Erreur de chargement"
         }
-
         chargement = false
     }
 
@@ -206,7 +209,6 @@ fun Catalogue(
             CircularProgressIndicator(color = Violet)
             Text("Chargement du catalogue...", color = Blanc)
         }
-
         erreur.isNotEmpty() -> {
             Text("Erreur : $erreur", color = Color.Red)
             Text(
@@ -214,19 +216,16 @@ fun Catalogue(
                 color = Blanc
             )
         }
-
         films.isEmpty() -> {
             Text(
                 "Aucun contenu trouvé dans ce catalogue.",
                 color = Blanc
             )
         }
-
         else -> {
             val filtres = films.filter {
                 it.titre.contains(recherche, ignoreCase = true)
             }
-
             LazyColumn {
                 items(filtres, key = { it.id }) { film ->
                     CarteFilm(film) {
@@ -251,12 +250,9 @@ suspend fun chargerCatalogue(type: String): List<Film> {
     for (i in 0 until catalogues.length()) {
         val catalogue = catalogues.getJSONObject(i)
 
-        if (catalogue.optString("type") != type) {
-            continue
-        }
+        if (catalogue.optString("type") != type) continue
 
         val id = catalogue.optString("id")
-
         if (id.isBlank()) continue
 
         val url = "$ADDON_BASE/catalog/$type/$id.json"
@@ -268,13 +264,10 @@ suspend fun chargerCatalogue(type: String): List<Film> {
 
             for (j in 0 until metas.length()) {
                 val item = metas.getJSONObject(j)
-
                 val titre = item.optString("name")
                 val identifiant = item.optString("id")
 
-                if (titre.isBlank() || identifiant.isBlank()) {
-                    continue
-                }
+                if (titre.isBlank() || identifiant.isBlank()) continue
 
                 resultats.add(
                     Film(
@@ -287,7 +280,7 @@ suspend fun chargerCatalogue(type: String): List<Film> {
                 )
             }
         } catch (_: Exception) {
-            // Un catalogue indisponible n'empêche pas les autres de charger.
+            // On continue avec les autres catalogues.
         }
     }
 
@@ -345,12 +338,7 @@ fun CarteFilm(
         Spacer(Modifier.width(12.dp))
 
         Column {
-            Text(
-                film.titre,
-                color = Blanc,
-                fontSize = 17.sp
-            )
-
+            Text(film.titre, color = Blanc, fontSize = 17.sp)
             Text(
                 if (film.type == "movie") "Film" else "Série",
                 color = Violet
@@ -364,11 +352,7 @@ fun DetailFilm(
     film: Film,
     retour: () -> Unit
 ) {
-    Text(
-        film.titre,
-        color = Blanc,
-        fontSize = 23.sp
-    )
+    Text(film.titre, color = Blanc, fontSize = 23.sp)
 
     Spacer(Modifier.height(12.dp))
 
@@ -418,11 +402,7 @@ fun LecteurVideo() {
         }
     }
 
-    Text(
-        "Lecteur vidéo",
-        color = Blanc,
-        fontSize = 22.sp
-    )
+    Text("Lecteur vidéo", color = Blanc, fontSize = 22.sp)
 
     OutlinedTextField(
         value = url,
@@ -431,22 +411,20 @@ fun LecteurVideo() {
         modifier = Modifier.fillMaxWidth()
     )
 
-    Button(
-        onClick = {
-            if (url.startsWith("https://") ||
-                url.startsWith("http://")
-            ) {
-                exoPlayer.setMediaItem(
-                    PlayerMediaItem.fromUri(url)
-                )
-                exoPlayer.prepare()
-                exoPlayer.play()
-                message = "Lecture demandée."
-            } else {
-                message = "Adresse vidéo invalide."
-            }
+    Button(onClick = {
+        if (url.startsWith("https://") ||
+            url.startsWith("http://")
+        ) {
+            exoPlayer.setMediaItem(
+                PlayerMediaItem.fromUri(url)
+            )
+            exoPlayer.prepare()
+            exoPlayer.play()
+            message = "Lecture demandée."
+        } else {
+            message = "Adresse vidéo invalide."
         }
-    ) {
+    }) {
         Text("Lire")
     }
 
@@ -467,23 +445,259 @@ fun LecteurVideo() {
     )
 }
 
+fun sauvegarderExtensions(
+    context: Context,
+    extensions: List<ExtensionInfo>
+) {
+    val tableau = JSONArray()
+
+    extensions.forEach { extension ->
+        val objet = JSONObject()
+        objet.put("nom", extension.nom)
+        objet.put("url", extension.url)
+        objet.put("identifiant", extension.identifiant)
+        objet.put("version", extension.version)
+        tableau.put(objet)
+    }
+
+    context.getSharedPreferences(
+        PREFS_NAME,
+        Context.MODE_PRIVATE
+    ).edit()
+        .putString(ADDONS_KEY, tableau.toString())
+        .apply()
+}
+
+fun chargerExtensionsEnregistrees(
+    context: Context
+): List<ExtensionInfo> {
+    val preferences = context.getSharedPreferences(
+        PREFS_NAME,
+        Context.MODE_PRIVATE
+    )
+
+    val texte = preferences.getString(ADDONS_KEY, null)
+
+    if (texte == null) {
+        return listOf(
+            ExtensionInfo(
+                nom = "Netflix Catalog – France",
+                url = ADDON_BASE,
+                identifiant = "netflix-catalog-fr",
+                version = "Extension initiale"
+            )
+        )
+    }
+
+    val tableau = JSONArray(texte)
+    val resultat = mutableListOf<ExtensionInfo>()
+
+    for (i in 0 until tableau.length()) {
+        val objet = tableau.getJSONObject(i)
+        resultat.add(
+            ExtensionInfo(
+                nom = objet.optString("nom"),
+                url = objet.optString("url"),
+                identifiant = objet.optString("identifiant"),
+                version = objet.optString("version")
+            )
+        )
+    }
+
+    return resultat
+}
+
+suspend fun verifierExtension(
+    adresse: String
+): ExtensionInfo = withContext(Dispatchers.IO) {
+    val urlPropre = adresse.trim().removeSuffix("/")
+    val urlManifest = if (urlPropre.endsWith("/manifest.json")) {
+        urlPropre
+    } else {
+        "$urlPropre/manifest.json"
+    }
+
+    val manifest = JSONObject(lireUrl(urlManifest))
+
+    val nom = manifest.optString("name")
+    val id = manifest.optString("id")
+    val version = manifest.optString("version")
+
+    if (nom.isBlank() || id.isBlank()) {
+        throw Exception(
+            "Ce fichier manifest.json ne contient pas de nom ou d'identifiant valide."
+        )
+    }
+
+    ExtensionInfo(
+        nom = nom,
+        url = urlPropre,
+        identifiant = id,
+        version = version.ifBlank { "Non précisée" }
+    )
+}
+
 @Composable
 fun Extensions() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var extensions by remember {
+        mutableStateOf<List<ExtensionInfo>>(emptyList())
+    }
+    var adresse by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+    var verification by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        extensions = chargerExtensionsEnregistrees(context)
+        sauvegarderExtensions(context, extensions)
+    }
+
     Text(
-        "Extension de catalogue",
+        "Gestionnaire d'extensions",
         color = Blanc,
         fontSize = 21.sp
     )
 
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(8.dp))
 
     Text(
-        "Streaming Catalogs – France",
-        color = Violet
-    )
-
-    Text(
-        "Les catalogues sont chargés depuis l'adresse configurée dans l'application.",
+        "Ajoute des extensions Stremio compatibles avec une adresse manifest.json.",
         color = Blanc
     )
-}
+
+    Spacer(Modifier.height(12.dp))
+
+    OutlinedTextField(
+        value = adresse,
+        onValueChange = { adresse = it },
+        label = { Text("Adresse de l'extension") },
+        placeholder = {
+            Text("https://exemple.com/manifest.json")
+        },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    Button(
+        onClick = {
+            if (adresse.isBlank()) {
+                message = "Colle d'abord une adresse."
+            } else if (
+                !adresse.trim().startsWith("https://") &&
+                !adresse.trim().startsWith("http://")
+            ) {
+                message = "L'adresse doit commencer par https:// ou http://"
+            } else {
+                verification = true
+                message = "Vérification de l'extension..."
+
+                scope.launch {
+                    try {
+                        val nouvelle = verifierExtension(adresse)
+
+                        if (extensions.any {
+                                it.identifiant == nouvelle.identifiant
+                            }
+                        ) {
+                            message = "Cette extension est déjà installée."
+                        } else {
+                            extensions = extensions + nouvelle
+                            sauvegarderExtensions(context, extensions)
+                            adresse = ""
+                            message = "Extension installée : ${nouvelle.nom}"
+                        }
+                    } catch (e: Exception) {
+                        message = "Installation impossible : ${
+                            e.message ?: "Erreur inconnue"
+                        }"
+                    }
+
+                    verification = false
+                }
+            }
+        },
+        enabled = !verification,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        if (verification) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = Blanc,
+                strokeWidth = 2.dp
+            )
+            Spacer(Modifier.width(8.dp))
+            Text("Vérification...")
+        } else {
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Installer l'extension")
+        }
+    }
+
+    if (message.isNotBlank()) {
+        Text(
+            message,
+            color = if (message.startsWith("Installation impossible")) {
+                Color.Red
+            } else {
+                Violet
+            },
+            fontSize = 13.sp
+        )
+    }
+
+    Spacer(Modifier.height(18.dp))
+
+    Text(
+        "Extensions installées (${extensions.size})",
+        color = Violet,
+        fontSize = 18.sp
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    if (extensions.isEmpty()) {
+        Text("Aucune extension installée.", color = Blanc)
+    } else {
+        LazyColumn {
+            items(
+                extensions,
+                key = { it.identifiant }
+            ) { extension ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                        .background(
+                            Carte,
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Extension,
+                        contentDescription = null,
+                        tint = Violet
+                    )
+
+                    Spacer(Modifier.width(10.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            extension.nom,
+                            color = Blanc,
+                            fontSize = 15.sp
+                        )
+                        Text(
+                            "Version : ${extension.version}",
+                            color = Violet,
+                            fontSize = 12.sp
+                        )
+                        
