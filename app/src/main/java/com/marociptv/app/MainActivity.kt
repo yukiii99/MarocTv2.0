@@ -136,9 +136,13 @@ fun MarocTvApp() {
                     .padding(14.dp)
             ) {
                 Text(
-                    text = "MarocTv2.0",
-                    color = Violet,
-                    fontSize = 27.sp
+    text = "MarocTv2.0",
+    color = Violet,
+    fontSize = 27.sp
+)
+                    
+                    
+                    
                 )
 
                 Spacer(Modifier.height(12.dp))
