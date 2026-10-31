@@ -35,10 +35,14 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-private val Noir = Color(0xFF100D16)
-private val Violet = Color(0xFF8B5CF6)
-private val Carte = Color(0xFF211A2D)
-private val Blanc = Color(0xFFF7F3FF)
+private val Noir = Color(0xFF080B09)
+private val Violet = Color(0xFFE32636)
+private val Vert = Color(0xFF168A45)
+private val Carte = Color(0xFF171D19)
+private val Blanc = Color(0xFFF7F7F2)
+
+
+
 
 private const val ADDON_BASE =
     "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibTo6RlI6MTc5MzQwMzk0MzY4NTowOjA6RlI%3D"
