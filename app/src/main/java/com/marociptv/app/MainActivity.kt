@@ -766,5 +766,81 @@ fun Extensions() {
                         .fillMaxWidth()
                         .padding(vertical = 5.dp)
                         .background(
-                            Carte,
+                            Carte,RoundedCornerShape(12.dp)
+)
+.padding(12.dp),
+verticalAlignment = Alignment.CenterVertically
+) {
+    Icon(
+        Icons.Default.Extension,
+        contentDescription = null,
+        tint = Violet
+    )
+
+    Spacer(Modifier.width(10.dp))
+
+    Column(
+        modifier = Modifier.weight(1f)
+    ) {
+        Text(
+            extension.nom,
+            color = Blanc,
+            fontSize = 15.sp
+        )
+
+        Text(
+            "Version : ${extension.version}",
+            color = Violet,
+            fontSize = 12.sp
+        )
+    }
+
+    IconButton(
+        onClick = {
+            extensions = extensions.filter {
+                it.identifiant != extension.identifiant
+            }
+            sauvegarderExtensions(context, extensions)
+            message = "Extension supprimée."
+        }
+    ) {
+        Icon(
+            Icons.Default.Delete,
+            contentDescription = "Supprimer",
+            tint = Color.Red
+        )
+    }
+}
+}
+}
+}
+}
+
+@Composable
+fun Favoris() {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            Icons.Default.Favorite,
+            contentDescription = null,
+            tint = Violet,
+            modifier = Modifier.size(48.dp)
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            "Mes favoris",
+            color = Blanc,
+            fontSize = 22.sp
+        )
+
+        Text(
+            "La sauvegarde des favoris sera ajoutée dans une prochaine étape.",
+            color = Blanc
+        )
+    }
+}
                             
