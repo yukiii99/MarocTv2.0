@@ -154,12 +154,6 @@ fun MarocTvApp() {
         fontSize = 25.sp
     )
                 }
-    
-)
-                    
-                    
-                    
-                )
 
                 Spacer(Modifier.height(12.dp))
 
