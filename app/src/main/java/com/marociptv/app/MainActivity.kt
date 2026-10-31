@@ -256,7 +256,12 @@ fun lireUrl(adresse: String): String {
         if (connexion.responseCode !in 200..299) {
             throw Exception("Réponse du serveur : ${connexion.responseCode}")
         }
-        return connexion.inputStream.bufferedReader().use { it.readText() }
+        val body = connexion.inputStream.bufferedReader().use { it.readText() }
+        val debut = body.trimStart().take(80).lowercase()
+        if (debut.startsWith("<!doctype html") || debut.startsWith("<html")) {
+            throw Exception("Le serveur a renvoyé une page HTML au lieu du JSON attendu. Vérifie l'adresse du manifeste ou de l'extension.")
+        }
+        return body
     } finally { connexion.disconnect() }
 }
 
@@ -326,20 +331,39 @@ fun DetailFilm(film: Film, onBack: () -> Unit, onPlay: (String, String) -> Unit)
 
     LaunchedEffect(film.id, film.addonUrl) {
         loading = true
-        try {
-            val pathType = if (film.type == "series") "series" else "movie"
-            val json = withContext(Dispatchers.IO) {
-                JSONObject(lireUrl("${film.addonUrl}/stream/$pathType/${Uri.encode(film.id)}.json"))
+        error = ""
+        streams = emptyList()
+        val pathType = if (film.type == "series") "series" else "movie"
+        val installed = chargerExtensionsEnregistrees(context)
+        // Interroge l'extension du catalogue puis les autres extensions installées.
+        val candidates = (listOf(film.addonUrl) + installed.map { it.url }).distinct()
+        val found = mutableListOf<VideoStream>()
+        val errors = mutableListOf<String>()
+        withContext(Dispatchers.IO) {
+            candidates.forEach { baseUrl ->
+                try {
+                    val base = baseUrl.trim().removeSuffix("/").removeSuffix("/manifest.json")
+                    val response = lireUrl("$base/stream/$pathType/${Uri.encode(film.id)}.json")
+                    val json = JSONObject(response)
+                    val array = json.optJSONArray("streams") ?: JSONArray()
+                    for (i in 0 until array.length()) {
+                        val obj = array.optJSONObject(i) ?: continue
+                        val url = obj.optString("url")
+                        if (url.startsWith("https://") || url.startsWith("http://")) {
+                            val label = obj.optString("title").ifBlank {
+                                obj.optString("name").ifBlank { "Source ${found.size + 1}" }
+                            }
+                            found.add(VideoStream(label, url))
+                        }
+                    }
+                } catch (e: Exception) {
+                    errors.add(e.message ?: "Extension indisponible")
+                }
             }
-            val array = json.optJSONArray("streams") ?: JSONArray()
-            streams = (0 until array.length()).mapNotNull { i ->
-                val obj = array.optJSONObject(i) ?: return@mapNotNull null
-                val url = obj.optString("url")
-                if (url.startsWith("http")) VideoStream(
-                    obj.optString("title").ifBlank { obj.optString("name").ifBlank { "Source ${i + 1}" } }, url
-                ) else null
-            }
-        } catch (e: Exception) { error = e.message ?: "Sources indisponibles" }
+        }
+        streams = found.distinctBy { it.url }
+        if (streams.isEmpty()) error = errors.firstOrNull()
+            ?: "Aucune source disponible. Vérifie que l'extension fournit des flux pour cet identifiant."
         loading = false
     }
 
@@ -382,7 +406,7 @@ fun DetailFilm(film: Film, onBack: () -> Unit, onPlay: (String, String) -> Unit)
 }
 
 @Composable
-@androidx.annotation.OptIn(UnstableApi::class)
+@OptIn(UnstableApi::class)
 fun LecteurVideo(
     urlInitiale: String = "",
     titreInitial: String = "",
