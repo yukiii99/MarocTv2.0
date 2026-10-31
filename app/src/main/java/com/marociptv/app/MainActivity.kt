@@ -135,10 +135,26 @@ fun MarocTvApp() {
                     .padding(padding)
                     .padding(14.dp)
             ) {
-                Text(
-    text = "MarocTv2.0",
-    color = Violet,
-    fontSize = 27.sp
+                Row(
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.CenterVertically
+) {
+    AsyncImage(
+        model = R.drawable.maroc_logo,
+        contentDescription = "Logo MarocTv2.0",
+        modifier = Modifier.size(65.dp),
+        contentScale = ContentScale.Fit
+    )
+
+    Spacer(Modifier.width(12.dp))
+
+    Text(
+        text = "MarocTv2.0",
+        color = Blanc,
+        fontSize = 25.sp
+    )
+                }
+    
 )
                     
                     
